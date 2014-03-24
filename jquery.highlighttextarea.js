@@ -10,6 +10,9 @@
  * thanks to Pascal Wacker for jQuery wrapper and API methods
  *    pascal.wacker@tilllate.com
  *
+ * thanks to Wolfgang Reutz for adding ranges
+ *    wolfgang.reutz@fhv.at
+ *
  * Dual licensed under the MIT or GPL Version 3 licenses.
  *    http://www.opensource.org/licenses/mit-license.php
  *    http://www.gnu.org/licenses/gpl.html
@@ -26,7 +29,7 @@
      */
     $.fn.highlightTextarea = function(options) {
         // callable public methods
-        var callable = ['highlight','enable','disable','setOptions','setWords'];
+        var callable = ['highlight','enable','disable','setOptions','setWords','setRanges'];
         
         var plugin = $(this).data('highlightTextarea');
         
@@ -68,6 +71,7 @@
      */
     $.fn.highlightTextarea.defaults = {
         words:         [],
+        ranges:        [],
         color:         '#ffff00',
         caseSensitive: true,
         resizable:     false,
@@ -190,6 +194,30 @@
                 words = [words];
             }
             this.options.words = words;
+            // clear ranges
+            this.options.ranges = [];
+            
+            if (this.$textarea.data('highlightTextareaEvents')===true) {
+                this.highlight();
+                return true;
+            }
+            else {
+                return false;
+            }
+        }
+
+        /*
+         * update ranges list
+         * scope: public
+         */
+        this.setRanges = function(ranges) {
+            if (!(ranges[0] instanceof Array)) {
+                ranges = [ranges];
+            }
+
+            this.options.ranges = ranges;
+            // clear words
+            this.options.words = [];
             
             if (this.$textarea.data('highlightTextareaEvents')===true) {
                 this.highlight();
@@ -319,6 +347,7 @@
         this.applyText = function(text) {
             text = this.html_entities(text);
             
+            // if words list is not empty, use words to be highlighted
             if (this.options.words.length > 0) {
                 replace = new Array();
                 
@@ -330,6 +359,40 @@
                   new RegExp('('+replace.join('|')+')', this.options.regParam), 
                   "<span class=\"highlight\" style=\"background-color:"+this.options.color+";\">$1</span>"
                 );
+            } else if (this.options.ranges.length > 0) {
+                // if we have a non empty ranges list, highlight those ranges
+
+                //first sort the ranges to be from small to big values
+                this.options.ranges.sort(function(a, b) {
+                    // ranges is an array of 2 dimensional array containing ranges
+                    // in the form of [[a0,a1], [b0,b1], ...]
+                    if (a[0] < b[0]) {
+                        return -1;
+                    } else if (a[0] > b[0]) {
+                        return 1;
+                    }
+                    return 0;
+                });
+                
+                var rangeStartIndex = 0;
+                var rangeEndIndex = 1;
+
+                for (var i=this.options.ranges.length-1; i>=0; i--) {
+                    // make sure the range is from small to big value, not reverse
+                    if (this.options.ranges[i][0] > this.options.ranges[i][1]) {
+                        rangeStartIndex = 1;
+                        rangeEndIndex = 0;
+                    } else {
+                        rangeStartIndex = 0;
+                        rangeEndIndex = 1;
+                    }
+                    text = text.substr(0, this.options.ranges[i][rangeEndIndex]) + '</span>' + text.substr(this.options.ranges[i][rangeEndIndex]);
+                    if (this.options.ranges[i][rangeStartIndex] > 0) {
+                        text = text.substr(0, this.options.ranges[i][rangeStartIndex]-1) + '<span class="highlight" style="background-color:' + this.options.color + ';">' + text.substr(this.options.ranges[i][rangeStartIndex]-1);
+                    } else {
+                        text = text.substr(0, this.options.ranges[i][rangeStartIndex]) + '<span class="highlight" style="background-color:' + this.options.color + ';">' + text.substr(this.options.ranges[i][rangeStartIndex]);
+                    }
+                }
             }
             
             this.$highlighter.html(text);
