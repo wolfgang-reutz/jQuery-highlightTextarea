@@ -211,7 +211,7 @@
          * scope: public
          */
         this.setRanges = function(ranges) {
-            if (!(ranges[0] instanceof Array)) {
+            if (!(ranges[0] instanceof Array) && (ranges.length > 0)) {
                 ranges = [ranges];
             }
 
